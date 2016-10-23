@@ -47,7 +47,7 @@ import           GHCJS.Marshal (ToJSVal(..))
 import           GHCJS.Foreign (jsNull)
 import           React.Flux.Export
 #else
-import Data.Text (Text)
+import           Data.Text (Text)
 type JSVal = ()
 class ToJSVal a
 instance ToJSVal Value
@@ -103,6 +103,17 @@ data PropertyOrHandler handler =
       { elementPropertyName :: JSString
       , elementValue :: ReactElementM handler ()
       }
+ | CallbackReturning
+      { cPropertyName :: JSString
+      , cCallback :: JSArray -> IO JSVal
+        -- ^ Accepts list of arguments and returns some JS value. Assumed to be
+        -- called ty react's foreign elements. Note that if Haskell thread will
+        -- be blocked while handling this callback you will have an exception in
+        -- JavaScript. You better not to use MVar's or STM's in this handler,
+        -- simple pure function would be ideal for this callback (and still we
+        -- have blackholes, so it is not clear what kind of functions may be
+        -- passed here).
+      }
  | CallbackPropertyWithArgumentArray
       { caPropertyName :: JSString
       , caFunc :: JSArray -> IO handler
@@ -123,6 +134,7 @@ instance Functor PropertyOrHandler where
     fmap f (NestedProperty name vals) = NestedProperty name (map (fmap f) vals)
     fmap f (ElementProperty name (ReactElementM mkElem)) =
         ElementProperty name $ ReactElementM $ mapWriter (\((),e) -> ((), fmap f e)) mkElem
+    fmap _ (CallbackReturning name cb) = CallbackReturning name cb
     fmap f (CallbackPropertyWithArgumentArray name h) = CallbackPropertyWithArgumentArray name (fmap f . h)
     fmap f (CallbackPropertyWithSingleArgument name h) = CallbackPropertyWithSingleArgument name (f . h)
     fmap _ (CallbackPropertyReturningView name f v) = CallbackPropertyReturningView name f v
@@ -313,6 +325,12 @@ mkReactElement runHandler this = runWriterT . mToElem
         addPropOrHandlerToObj obj (ElementProperty name rM) = do
             ReactElementRef ref <- mToElem rM
             lift $ JSO.setProp name ref obj
+        addPropOrHandlerToObj obj (CallbackReturning name func) = do
+            cb <- lift $ syncCallback1' $ \argref -> do
+                func $ unsafeCoerce argref
+            tell [jsval cb]
+            wrappedCb <- lift $ js_CreateArgumentsCallbackReturn cb
+            lift $ JSO.setProp name wrappedCb obj
         addPropOrHandlerToObj obj (CallbackPropertyWithArgumentArray name func) = do
             -- this will be released by the render function of the class (jsbits/class.js)
             cb <- lift $ syncCallback1 ContinueAsync $ \argref -> do
@@ -397,6 +415,10 @@ foreign import javascript unsafe
 foreign import javascript unsafe
     "hsreact$mk_arguments_callback($1)"
     js_CreateArgumentsCallback :: Callback (JSVal -> IO ()) -> IO JSVal
+
+foreign import javascript unsafe
+    "hsreact$mk_arguments_callback($1)"
+    js_CreateArgumentsCallbackReturn :: Callback (JSVal -> IO JSVal) -> IO JSVal
 
 foreign import javascript unsafe
     "hsreact$wrap_callback_returning_element($1)"

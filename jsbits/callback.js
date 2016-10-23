@@ -4,7 +4,7 @@ function hsreact$mk_arguments_callback(f) {
         for (var i = 0; i < arguments.length; i++) {
             args[i] = arguments[i];
         }
-        f(args);
+        return f(args);
     };
 }
 

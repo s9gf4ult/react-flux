@@ -10,6 +10,8 @@ module React.Flux.PropertiesAndEvents (
   , elementProperty
   , nestedProperty
   , CallbackFunction
+  , callbackReturning1          --  FIXME: remove this crap
+  , callbackReturning3
   , callback
   , callbackView
   , ArgumentsToProps
@@ -110,7 +112,7 @@ import           React.Flux.Views (ReactView(..), ViewEventHandler, StatefulView
 import           Data.Maybe (fromMaybe)
 
 import           GHCJS.Foreign (fromJSBool)
-import           GHCJS.Marshal (FromJSVal(..))
+import           GHCJS.Marshal (FromJSVal(..), ToJSVal(..))
 import           GHCJS.Types (JSVal, nullRef, IsJSVal)
 import           JavaScript.Array as JSA
 import qualified Data.JSString.Text as JSS
@@ -190,6 +192,42 @@ instance {-# OVERLAPPABLE #-} (FromJSVal a, CallbackFunction handler b) => Callb
     applyFromArguments _ _ _ = error "Not supported in GHC"
 #endif
 
+--  FIXME: Remove this crap later
+callbackReturning1
+  :: (FromJSVal a, ToJSVal b)
+  => JSString
+  -> (a -> IO b)
+  -> PropertyOrHandler handler
+callbackReturning1 name func = CallbackReturning name $ \args -> do
+  let k = 0
+  ma <- fromJSVal $ if k >= JSA.length args then nullRef else JSA.index k args
+  a <- maybe (error "Unable to decode callback argument") return ma
+  ret <- func a
+  toJSVal ret
+
+callbackReturning3
+  :: (FromJSVal a, FromJSVal b, FromJSVal c, ToJSVal d)
+  => JSString
+  -> (a -> b -> c -> IO d)
+  -> PropertyOrHandler handler
+callbackReturning3 name func = CallbackReturning name $ \args -> do
+  let k = 0
+  ma <- fromJSVal $ if k >= JSA.length args then nullRef else JSA.index k args
+  a <- maybe (error "Unable to decode callback argument") return ma
+
+  let k = 1                     -- we heard you like imperative ?
+  mb <- fromJSVal $ if k >= JSA.length args then nullRef else JSA.index k args
+  b <- maybe (error "Unable to decode callback argument") return mb
+
+  let k = 2
+  mc <- fromJSVal $ if k >= JSA.length args then nullRef else JSA.index k args
+  c <- maybe (error "Unable to decode callback argument") return mc
+
+  ret <- func a b c
+  toJSVal ret
+
+
+
 -- | Create a callback property.  This is primarily intended for foreign React classes which expect
 -- callbacks to be passed to them as properties.  For events on DOM elements, you should instead use
 -- the handlers below.
@@ -213,7 +251,7 @@ callback :: CallbackFunction handler func => JSString -> func -> PropertyOrHandl
 callback name func = CallbackPropertyWithArgumentArray name $ \arr -> applyFromArguments arr 0 func
 
 -- | Create a zero-argument callback property.  When this callback function is executed, it
--- will render the given view and return the resulting React element.  If you need to 
+-- will render the given view and return the resulting React element.  If you need to
 -- create a callback which expects arguments, use 'callbackViewWithProps' instead.
 callbackView :: JSString -> ReactView () -> PropertyOrHandler handler
 callbackView name v = CallbackPropertyReturningView name (const $ return ()) (reactView v)
