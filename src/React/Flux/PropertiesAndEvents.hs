@@ -206,7 +206,8 @@ callbackReturning1 name func = CallbackReturning name $ \args -> do
   toJSVal ret
 
 callbackReturning3
-  :: (FromJSVal a, FromJSVal b, FromJSVal c, ToJSVal d)
+  :: forall a b c d handler
+   . (FromJSVal a, FromJSVal b, FromJSVal c, ToJSVal d)
   => JSString
   -> (a -> b -> c -> IO d)
   -> PropertyOrHandler handler
