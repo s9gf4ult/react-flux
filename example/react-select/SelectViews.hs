@@ -15,8 +15,8 @@ import SelectStore
 import qualified Data.Text as T
 
 data SelectOption a = SelectOption
-  { seValue          :: !a
-  , seLabel          :: !Text
+  { soValue          :: !a
+  , soLabel          :: !Text
   } deriving (Show)
 
 deriveJSON
@@ -34,27 +34,38 @@ instance (FromJSON a) => FromJSVal (SelectOption a) where
 instance (ToJSON a) => ToJSVal (SelectOption a) where
   toJSVal = toJSVal . toJSON
 
+-- | Posible values to select from
+options :: [SelectOption Int]
+options = map toOption [0..100]
+  where
+    toOption o = SelectOption o $ T.pack $ (show o) ++ " characters"
+
 selectApp :: ReactView ()
 selectApp = defineControllerView "select app" selectStore $ \state () -> do
   div_ $ do
     foreign_ "Select"
-      [callbackReturning3 "filterOptions" filterOptions]
-      -- []
+      [ callbackReturning3 "filterOptions" filterOptions
+      , callback "onChange" $ \so -> selectDispatch $ SelectValue $ soValue so
+      , "options" @= options
+      , "value" @= (ssValue state) ]
       mempty
 
 -- | Callback generating list of select options
 filterOptions
-  :: Maybe [SelectOption Text]
-  -> Maybe String
-  -> Maybe [Text]
-  -> IO [SelectOption Text]
-filterOptions _ (Just str) _ = do
+  :: Maybe [SelectOption Int]   -- ^ options from element
+  -> Maybe String               -- ^ string user just entered
+  -> Maybe [Int]                -- ^ options user selected
+  -> IO [SelectOption Int]      -- ^ options to show to the user
+filterOptions (Just opts) (Just str) _ = do
   print str
-  -- threadDelay 1000 -- < with this line we get error
-  return $ map toOpt opts
+  -- threadDelay 1000 -- < with this line we get error, be carefull
+  return $ filter lengthAround opts
   where
-    toOpt t = SelectOption t t
-    opts = map (T.pack . (str <>) . show) [1..5]
+    lengthAround op =
+      let val = soValue op
+          len = length str
+      in val >= (len - 5) && val <= (len + 5)
+
 filterOptions _ _ _ = do
-  print "no str given"
+  print "wrong arguments given"
   return []
