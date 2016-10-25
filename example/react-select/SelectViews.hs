@@ -44,7 +44,7 @@ selectApp :: ReactView ()
 selectApp = defineControllerView "select app" selectStore $ \state () -> do
   div_ $ do
     foreign_ "Select"
-      [ callbackReturning3 "filterOptions" filterOptions
+      [ callbackReturning "filterOptions" filterOptions
       , callback "onChange" $ \so -> selectDispatch $ SelectValue $ soValue so
       , "options" @= options
       , "value" @= (ssValue state) ]

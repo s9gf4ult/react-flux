@@ -10,8 +10,7 @@ module React.Flux.PropertiesAndEvents (
   , elementProperty
   , nestedProperty
   , CallbackFunction
-  , callbackReturning1          --  FIXME: remove this crap
-  , callbackReturning3
+  , callbackReturning
   , callback
   , callbackView
   , ArgumentsToProps
@@ -176,9 +175,13 @@ nestedProperty = NestedProperty
 class CallbackFunction handler a | a -> handler  where
     applyFromArguments :: JSArray -> Int -> a -> IO handler
 
+instance CallbackFunction (IO a) (IO a) where
+    applyFromArguments _ _ ioa = return ioa
+
 instance CallbackFunction ViewEventHandler ViewEventHandler where
     applyFromArguments _ _ h = return h
 
+--  FIXME: make StatefulViewEventHandler newtype to avoid OverlappedInstances ?
 instance {-# OVERLAPPING #-} CallbackFunction (StatefulViewEventHandler s) (StatefulViewEventHandler s) where
     applyFromArguments _ _ h = return h
 
@@ -192,42 +195,15 @@ instance {-# OVERLAPPABLE #-} (FromJSVal a, CallbackFunction handler b) => Callb
     applyFromArguments _ _ _ = error "Not supported in GHC"
 #endif
 
---  FIXME: Remove this crap later
-callbackReturning1
-  :: (FromJSVal a, ToJSVal b)
+callbackReturning
+  :: (CallbackFunction (IO a) func, ToJSVal a)
   => JSString
-  -> (a -> IO b)
+  -> func
   -> PropertyOrHandler handler
-callbackReturning1 name func = CallbackReturning name $ \args -> do
-  let k = 0
-  ma <- fromJSVal $ if k >= JSA.length args then nullRef else JSA.index k args
-  a <- maybe (error "Unable to decode callback argument") return ma
-  ret <- func a
+callbackReturning name func = CallbackReturning name $ \arr -> do
+  ioret <- applyFromArguments arr 0 func
+  ret <- ioret
   toJSVal ret
-
-callbackReturning3
-  :: forall a b c d handler
-   . (FromJSVal a, FromJSVal b, FromJSVal c, ToJSVal d)
-  => JSString
-  -> (a -> b -> c -> IO d)
-  -> PropertyOrHandler handler
-callbackReturning3 name func = CallbackReturning name $ \args -> do
-  let k = 0
-  ma <- fromJSVal $ if k >= JSA.length args then nullRef else JSA.index k args
-  a <- maybe (error "Unable to decode callback argument") return ma
-
-  let k = 1                     -- we heard you like imperative ?
-  mb <- fromJSVal $ if k >= JSA.length args then nullRef else JSA.index k args
-  b <- maybe (error "Unable to decode callback argument") return mb
-
-  let k = 2
-  mc <- fromJSVal $ if k >= JSA.length args then nullRef else JSA.index k args
-  c <- maybe (error "Unable to decode callback argument") return mc
-
-  ret <- func a b c
-  toJSVal ret
-
-
 
 -- | Create a callback property.  This is primarily intended for foreign React classes which expect
 -- callbacks to be passed to them as properties.  For events on DOM elements, you should instead use
