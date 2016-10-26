@@ -23,10 +23,23 @@ import GHCJS.Types (JSVal)
 foreign import javascript unsafe
     "$r = window[$1]"
     js_lookupWindow :: JSString -> JSVal
+
+foreign import javascript unsafe
+    "$r = $1[$2]"
+    js_lookupObj :: JSVal -> JSString -> JSVal
+
+-- | Lookup window object down to deepest children
+deepLookupWindow :: [JSString] -> JSVal
+deepLookupWindow [] = error "deepLookupWindow: List must be non empty"
+deepLookupWindow (a: as) =
+    let x = js_lookupWindow a
+    in foldl js_lookupObj x as
 #else
-js_lookupWindow :: a -> ()
-js_lookupWindow _ = ()
+deepLookupWindow :: a -> ()
+deepLookupWindow _ = ()
 #endif
+
+
 
 -- | A wrapper around 'foreignClass' that looks up the class on the `window`.  I use it for several
 -- third-party react components.  For example, with <https://github.com/reactjs/react-modal react-modal>,
@@ -54,11 +67,16 @@ js_lookupWindow _ = ()
 -- >                       ]
 -- >        , callback "onChange" $ \(i :: String) -> dispatch $ ItemChangedTo i
 -- >        ]
-foreign_ :: JSString -- ^ this should be the name of a property on `window` which contains a react class.
+foreign_ :: [JSString] -- ^ this should be list which head is the name of a
+                       -- property on `window` which contains a react
+                       -- class. Second element is a name of property of this
+                       -- class, third is a property of second and so on. In
+                       -- general, class name like "Select.Async" should be
+                       -- given as @["Select", "Async"]@
          -> [PropertyOrHandler handler] -- ^ properties
          -> ReactElementM handler a -- ^ children
          -> ReactElementM handler a
-foreign_ x = foreignClass (js_lookupWindow x)
+foreign_ x = foreignClass (deepLookupWindow x)
 
 -- | A 'div_' with the given class name (multiple classes can be separated by spaces).  This is
 -- useful for defining rows and columns in your CSS framework of choice.  I use

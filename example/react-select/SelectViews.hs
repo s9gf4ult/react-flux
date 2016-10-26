@@ -43,7 +43,7 @@ options = map toOption [0..100]
 selectApp :: ReactView ()
 selectApp = defineControllerView "select app" selectStore $ \state () -> do
   div_ $ do
-    foreign_ "Select"
+    foreign_ ["Select"]
       [ callbackReturning "filterOptions" filterOptions
       , callback "onChange" $ \so -> selectDispatch $ SelectValue $ soValue so
       , "options" @= options
