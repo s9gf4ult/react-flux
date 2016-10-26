@@ -307,7 +307,7 @@ mkReactElement runHandler this = runWriterT . mToElem
                 xs -> lift $ do
                     emptyObj <- JSO.create
                     let arr = jsval $ JSA.fromList $ map reactElementRef xs
-                    js_ReactCreateForeignElement (ReactViewRef js_divLikeElement) emptyObj arr
+                    js_ReactCreateForeignElement3 js_divLikeElement emptyObj arr
 
         -- add the property or handler to the javascript object
         addPropOrHandlerToObj :: JSO.Object -> PropertyOrHandler eventHandler -> MkReactElementM ()
@@ -363,13 +363,16 @@ mkReactElement runHandler this = runWriterT . mToElem
             obj <- lift $ JSO.create
             mapM_ (addPropOrHandlerToObj obj) $ fProps f
             childNodes <- createElement $ fChild f
-            let children = case map reactElementRef childNodes of
-                             [] -> jsNull
-                             [x] -> x
-                             xs -> jsval $ JSA.fromList xs
-            e <- lift $ case fName f of
-                Left s -> js_ReactCreateElementName s obj children
-                Right ref -> js_ReactCreateForeignElement ref obj children
+
+            let elemType = case fName f of
+                  Left s -> jsval s
+                  Right ref -> jsval ref
+
+            e <- lift $ case map reactElementRef childNodes of
+              []  -> js_ReactCreateForeignElement2 elemType obj
+              [a] -> js_ReactCreateForeignElement3 elemType obj a
+              xs  -> js_ReactCreateForeignElement3 elemType obj $ jsval $ JSA.fromList xs
+
             return [e]
         createElement (ViewElement { ceClass = rc, ceProps = props, ceKey = mkey, ceChild = child }) = do
             childNodes <- createElement child
@@ -398,11 +401,11 @@ foreign import javascript unsafe
 
 foreign import javascript unsafe
     "React['createElement']($1, $2, $3)"
-    js_ReactCreateElementName :: JSString -> JSO.Object -> JSVal -> IO ReactElementRef
+    js_ReactCreateForeignElement3 :: JSVal -> JSO.Object -> JSVal -> IO ReactElementRef
 
 foreign import javascript unsafe
-    "React['createElement']($1, $2, $3)"
-    js_ReactCreateForeignElement :: ReactViewRef a -> JSO.Object -> JSVal -> IO ReactElementRef
+    "React['createElement']($1, $2)"
+    js_ReactCreateForeignElement2 :: JSVal -> JSO.Object -> IO ReactElementRef
 
 foreign import javascript unsafe
     "React['createElement']($1, {hs:$2}, $3)"

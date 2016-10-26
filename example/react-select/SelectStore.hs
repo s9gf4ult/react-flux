@@ -5,6 +5,7 @@ module SelectStore where
 import Control.DeepSeq
 import Data.Text as T
 import GHC.Generics (Generic)
+import GHCJS.Types
 import React.Flux
 
 data SelectState = SelectState
@@ -13,6 +14,7 @@ data SelectState = SelectState
 
 data SelectAction
   = SelectValue Int
+  | LoadOptions String JSVal
   deriving (Generic)
 
 instance NFData SelectAction
@@ -23,6 +25,9 @@ instance StoreData SelectState where
     SelectValue v -> do
       print v
       return $ SelectState v
+    LoadOptions str val -> do
+      print str
+      return state
 
 selectStore :: ReactStore SelectState
 selectStore = mkStore $ SelectState 0
