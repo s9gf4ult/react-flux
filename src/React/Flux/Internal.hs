@@ -333,16 +333,18 @@ mkReactElement runHandler this = runWriterT . mToElem
             lift $ JSO.setProp name wrappedCb obj
         addPropOrHandlerToObj obj (CallbackPropertyWithArgumentArray name func) = do
             -- this will be released by the render function of the class (jsbits/class.js)
-            cb <- lift $ syncCallback1 ContinueAsync $ \argref -> do
+            cb <- lift $ syncCallback1' $ \argref -> do
                 handler <- func $ unsafeCoerce argref
                 runHandler handler
+                return jsNull
             tell [jsval cb]
-            wrappedCb <- lift $ js_CreateArgumentsCallback cb
+            wrappedCb <- lift $ js_CreateArgumentsCallbackReturn cb
             lift $ JSO.setProp name wrappedCb obj
         addPropOrHandlerToObj obj (CallbackPropertyWithSingleArgument name func) = do
             -- this will be released by the render function of the class (jsbits/class.js)
-            cb <- lift $ syncCallback1 ContinueAsync $ \ref ->
+            cb <- lift $ syncCallback1' $ \ref -> do
                 runHandler $ func $ HandlerArg ref
+                return jsNull
             tell [jsval cb]
             lift $ JSO.setProp name (jsval cb) obj
 
@@ -415,9 +417,9 @@ foreign import javascript unsafe
     "React['createElement']($1, {key: $2, hs:$3}, $4)"
     js_ReactCreateKeyedElement :: ReactViewRef a -> JSVal -> Export props -> JSVal -> IO ReactElementRef
 
-foreign import javascript unsafe
-    "hsreact$mk_arguments_callback($1)"
-    js_CreateArgumentsCallback :: Callback (JSVal -> IO ()) -> IO JSVal
+-- foreign import javascript unsafe
+--     "hsreact$mk_arguments_callback($1)"
+--     js_CreateArgumentsCallback :: Callback (JSVal -> IO ()) -> IO JSVal
 
 foreign import javascript unsafe
     "hsreact$mk_arguments_callback($1)"
