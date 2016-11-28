@@ -5,6 +5,7 @@ module React.Flux.Store (
   , StoreData(..)
   , SomeStoreAction(..)
   , mkStore
+  , mkStoreIO
   , getStoreData
   , alterStore
   , executeAction
@@ -118,11 +119,11 @@ instance NFData SomeStoreAction where
 ----------------------------------------------------------------------------------------------------
 
 -- | Create a new store from the initial data.
-mkStore :: StoreData storeData => storeData -> ReactStore storeData
+mkStoreIO :: StoreData storeData => storeData -> IO (ReactStore storeData)
 
 #ifdef __GHCJS__
 
-mkStore initial = unsafePerformIO $ do
+mkStoreIO initial = do
     i <- export initial
     ref <- js_CreateStore i
     storeMVar <- newMVar initial
@@ -140,11 +141,15 @@ foreign import javascript unsafe
 
 #else
 
-mkStore initial = unsafePerformIO $ do
+mkStoreIO initial = do
     storeMVar <- newMVar initial
     return $ ReactStore (ReactStoreRef ()) storeMVar
 
 #endif
+
+-- | Create a new store from the initial data. Uses 'unsafePerformIO'
+mkStore :: StoreData storeData => storeData -> ReactStore storeData
+mkStore = unsafePerformIO . mkStoreIO
 
 {-# NOINLINE mkStore #-}
 
