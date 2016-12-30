@@ -119,7 +119,7 @@ instance NFData SomeStoreAction where
 ----------------------------------------------------------------------------------------------------
 
 -- | Create a new store from the initial data.
-mkStoreIO :: StoreData storeData => storeData -> IO (ReactStore storeData)
+mkStoreIO :: (Typeable storeData) => storeData -> IO (ReactStore storeData)
 
 #ifdef __GHCJS__
 
@@ -148,7 +148,7 @@ mkStoreIO initial = do
 #endif
 
 -- | Create a new store from the initial data. Uses 'unsafePerformIO'
-mkStore :: StoreData storeData => storeData -> ReactStore storeData
+mkStore :: (Typeable storeData) => storeData -> ReactStore storeData
 mkStore = unsafePerformIO . mkStoreIO
 
 {-# NOINLINE mkStore #-}
