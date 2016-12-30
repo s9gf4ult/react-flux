@@ -20,17 +20,18 @@ type AppName = T.Text
 type AppView = ReactElementM ViewEventHandler
 type AppRouter = [T.Text] -> IO ()
 
-data App props = forall state. StoreData state =>
+data App props = forall state action. (Typeable state) =>
            App {appName        :: AppName
+               , appTransform  :: Transform action state
                , appState      :: ReactStore state
                , appView       :: Typeable props => state -> props -> AppView ()
-               , appInitAction :: StoreAction state
+               , appInitAction :: action
                , appRouter     :: Maybe AppRouter
                }
                deriving Typeable
 
 initApp :: Typeable props => App props -> IO (ReactView props)
 initApp App{..} = do
-  let view' = defineControllerView (JSS.textToJSString appName) appState (\st props -> appView st props)
-  alterStore appState appInitAction
+  let view' = defineControllerView (JSS.textToJSString appName) appTransform appState (\st props -> appView st props)
+  alterStore appTransform appState appInitAction
   return view'

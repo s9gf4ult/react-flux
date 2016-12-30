@@ -30,7 +30,7 @@ menuItem_ curPageId linkPageId =
     let linkPage = pageFor linkPageId
     in
     li_ [classNames [("pure-menu-item", True), ("pure-menu-selected", curPageId == pageId linkPage)]] $
-        a_ ["className" $= "pure-menu-link", onClick $ \_ _ -> changePageTo $ pageId linkPage] $
+        a_ ["className" $= "pure-menu-link", onClick $ \_ _ -> dispatch $ ChangePageTo $ pageId linkPage] $
             pageTitle linkPage
 
 -- | The navigation menu
@@ -43,11 +43,11 @@ navMenu_ curPageId =
 
 -- | The entire layout of the app, consisting of the menu and the main content section.
 myApp :: ReactView ()
-myApp = defineControllerView "my application" currentNavPageStore $ \navState () -> do
+myApp = defineControllerView "my application" transformNavState currentNavPageStore $ \navState () -> do
     div_ ["id" $= "layout", classNames [("active", sideMenuOpen navState)]] $ do
         a_ ["id" $= "menuLink"
            , classNames [("menu-link", True), ("active", sideMenuOpen navState)]
-           , onClick $ \_ _ -> [SomeStoreAction currentNavPageStore ToggleSideMenu]
+           , onClick $ \_ _ -> dispatch ToggleSideMenu
            ] $ span_ mempty
         div_ ["id" $= "menu", classNames [("active", sideMenuOpen navState)]] $
             navMenu_ $ currentPageId navState

@@ -4,8 +4,9 @@
 -- example they are all defined here.
 module PageViews where
 
-import React.Flux
 import Dispatcher
+import NavStore
+import React.Flux
 
 page1 :: ReactView ()
 page1 = defineView "page 1" $ \() -> div_ $ do
@@ -14,7 +15,7 @@ page1 = defineView "page 1" $ \() -> div_ $ do
     cldiv_ "content" $ do
         p_ $ do
             "Page 1 content. "
-            clbutton_ "pure-button" (changePageTo Page2) "Change to page 2"
+            clbutton_ "pure-button" (dispatch $ ChangePageTo Page2) "Change to page 2"
             "Also, try reducing the browser width to see the responsive menu."
         p_ $ do
             "You must load this file from a server.  If you did not, page changes might not work depending on your browser security settings (some features don't always work for file URLs).  Use for example "

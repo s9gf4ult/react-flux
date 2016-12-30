@@ -2,8 +2,9 @@
 module React.Flux.Store (
     ReactStoreRef(..)
   , ReactStore(..)
-  , StoreData(..)
+  , Transform
   , SomeStoreAction(..)
+  , mkSomeStoreAction
   , mkStore
   , mkStoreIO
   , getStoreData
@@ -86,33 +87,46 @@ data ReactStore storeData = ReactStore {
 getStoreData :: ReactStore storeData -> IO storeData
 getStoreData (ReactStore _ mvar) = readMVar mvar
 
--- | The data in a store must be an instance of this typeclass.
-class Typeable storeData => StoreData storeData where
-    -- | The actions that this store accepts
-    type StoreAction storeData
+-- -- | The data in a store must be an instance of this typeclass.
+-- class Typeable storeData => StoreData storeData where
+--     -- | The actions that this store accepts
+--     type StoreAction storeData
 
-    -- | Transform the store data according to the action.  This is the only place in your app where
-    -- @IO@ should occur.  The transform function should complete quickly, since the UI will not be
-    -- re-rendered until the transform is complete.  Therefore, if you need to perform some longer
-    -- action, you should fork a thread from inside 'transform'.  The thread can then call 'alterStore'
-    -- with another action with the result of its computation.  This is very common to communicate with
-    -- the backend using AJAX.  Indeed, the 'React.Flux.Combinators.jsonAjax' utility function
-    -- implements exactly this strategy since it is so common.
-    --
-    -- Note that if the transform throws an exception, the transform will be aborted and the old
-    -- store data will be kept unchanged.  The exception will then be thrown from 'alterStore'.
-    --
-    -- For the best performance, care should be taken in only modifying the part of the store data
-    -- that changed (see below for more information on performance).
-    transform :: StoreAction storeData -> storeData -> IO storeData
+--     -- | Transform the store data according to the action.  This is the only place in your app where
+--     -- @IO@ should occur.  The transform function should complete quickly, since the UI will not be
+--     -- re-rendered until the transform is complete.  Therefore, if you need to perform some longer
+--     -- action, you should fork a thread from inside 'transform'.  The thread can then call 'alterStore'
+--     -- with another action with the result of its computation.  This is very common to communicate with
+--     -- the backend using AJAX.  Indeed, the 'React.Flux.Combinators.jsonAjax' utility function
+--     -- implements exactly this strategy since it is so common.
+--     --
+--     -- Note that if the transform throws an exception, the transform will be aborted and the old
+--     -- store data will be kept unchanged.  The exception will then be thrown from 'alterStore'.
+--     --
+--     -- For the best performance, care should be taken in only modifying the part of the store data
+--     -- that changed (see below for more information on performance).
+--     transform :: StoreAction storeData -> storeData -> IO storeData
+
+type Transform storeAction storeData = storeAction -> storeData -> IO storeData
 
 -- | An existential type for some store action.  It is used as the output of the dispatcher.
 -- The 'NFData' instance is important for performance, for details see below.
-data SomeStoreAction = forall storeData. (StoreData storeData, NFData (StoreAction storeData))
-    => SomeStoreAction (ReactStore storeData) (StoreAction storeData)
+data SomeStoreAction = forall storeData.
+  SomeStoreAction !(ReactStore storeData) !(ReactStore storeData -> IO ())
 
 instance NFData SomeStoreAction where
-    rnf (SomeStoreAction _ action) = action `deepseq` ()
+    rnf ssa = ssa `seq` ()
+
+mkSomeStoreAction
+  :: (Typeable storeData)
+  => Transform storeAction storeData
+  -> ReactStore storeData
+  -> storeAction
+  -> SomeStoreAction
+mkSomeStoreAction transform storeData storeAction =
+  SomeStoreAction storeData ioAction
+  where
+    ioAction store = alterStore transform store storeAction
 
 ----------------------------------------------------------------------------------------------------
 -- mkStore has two versions
@@ -163,11 +177,16 @@ mkStore = unsafePerformIO . mkStoreIO
 --
 -- Only a single thread can be transforming the store at any one time, so this function will block
 -- on an 'MVar' waiting for a previous transform to complete if one is in process.
-alterStore :: StoreData storeData => ReactStore storeData -> StoreAction storeData -> IO ()
+alterStore
+  :: (Typeable storeData)
+  => Transform storeAction storeData
+  -> ReactStore storeData
+  -> storeAction
+  -> IO ()
 
 #ifdef __GHCJS__
 
-alterStore store action = modifyMVar_ (storeData store) $ \oldData -> do
+alterStore transform store action = modifyMVar_ (storeData store) $ \oldData -> do
     newData <- transform action oldData
 
     -- There is a hack in PropertiesAndEvents that the fake event store for propagation and prevent
@@ -188,4 +207,4 @@ alterStore store action = modifyMVar_ (storeData store) (transform action)
 
 -- | Call 'alterStore' on the store and action.
 executeAction :: SomeStoreAction -> IO ()
-executeAction (SomeStoreAction store action) = alterStore store action
+executeAction (SomeStoreAction store action) = action store

@@ -38,17 +38,17 @@ data NavState = NavState
   , currentPageId :: NavPageId
   } deriving (Show, Eq, Generic, Typeable)
 
-instance StoreData NavState where
-    type StoreAction NavState = NavAction
-    transform (ChangePageTo p) _ = do
-        historyPushState p
-        setDocTitle p
-        return NavState { currentPageId = p, sideMenuOpen = False }
-    transform (BackToPage p) _ = do
-        setDocTitle p
-        return NavState { currentPageId = p, sideMenuOpen = False }
-    transform ToggleSideMenu s =
-        return $ s { sideMenuOpen = not (sideMenuOpen s) } -- use a lens!
+transformNavState :: Transform NavAction NavState
+transformNavState (ChangePageTo p) _ = do
+    historyPushState p
+    setDocTitle p
+    return NavState { currentPageId = p, sideMenuOpen = False }
+transformNavState (BackToPage p) _ = do
+    setDocTitle p
+    return NavState { currentPageId = p, sideMenuOpen = False }
+transformNavState ToggleSideMenu s =
+    return $ s { sideMenuOpen = not (sideMenuOpen s) } -- use a lens!
+
 
 currentNavPageStore :: ReactStore NavState
 currentNavPageStore = mkStore (NavState False Page1)
@@ -88,5 +88,5 @@ initHistory = do
     -- register a callback for onpopstate event
     c <- syncCallback1 ContinueAsync $ \pageRef -> do
         pageInt <- fromMaybe (error "Unable to parse page") <$> fromJSVal pageRef
-        alterStore currentNavPageStore $ BackToPage $ toEnum pageInt
+        alterStore transformNavState currentNavPageStore $ BackToPage $ toEnum pageInt
     js_setOnPopState c

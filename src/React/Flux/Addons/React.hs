@@ -64,22 +64,22 @@ data PerfAction = PerfStart
 
 instance NFData PerfAction
 
-instance StoreData PerfStoreData where
-    type StoreAction PerfStoreData = PerfAction
-
-    transform PerfStart _ = do
-        js_perf "start"
-        return $ PerfStoreData True
-
-    transform (PerfStopAndPrint toPrint) _ = do
-        js_perf "stop"
-        forM_ toPrint $ \action -> do
-            js_perf $ case action of
-                PerfPrintInclusive -> "printInclusive"
-                PerfPrintExclusive -> "printExclusive"
-                PerfPrintWasted -> "printWasted"
-                PerfPrintDOM -> "printDOM"
-        return $ PerfStoreData False
+transformPerfStoreData
+  :: PerfAction
+  -> PerfStoreData
+  -> IO PerfStoreData
+transformPerfStoreData PerfStart _ = do
+    js_perf "start"
+    return $ PerfStoreData True
+transformPerfStoreData (PerfStopAndPrint toPrint) _ = do
+    js_perf "stop"
+    forM_ toPrint $ \action -> do
+        js_perf $ case action of
+            PerfPrintInclusive -> "printInclusive"
+            PerfPrintExclusive -> "printExclusive"
+            PerfPrintWasted -> "printWasted"
+            PerfPrintDOM -> "printDOM"
+    return $ PerfStoreData False
 
 perfStore :: ReactStore PerfStoreData
 perfStore = mkStore $ PerfStoreData False
@@ -87,11 +87,13 @@ perfStore = mkStore $ PerfStoreData False
 -- | Convert a performance action into a store action.   Use this if you are not using
 -- 'perfToggleButton_'.
 perfA :: PerfAction -> SomeStoreAction
-perfA = SomeStoreAction perfStore
+perfA = mkSomeStoreAction transformPerfStoreData perfStore
 
 -- | The performance toggle button view
 perfToggleButton :: ReactView [PerfPrint]
-perfToggleButton = defineControllerView "perf toggle button" perfStore $ \sData toPrint ->
+perfToggleButton =
+  defineControllerView "perf toggle button" transformPerfStoreData perfStore
+  $ \sData toPrint ->
     button_ [ onClick $ \_ _ ->
                 if perfIsActive sData
                     then [perfA $ PerfStopAndPrint toPrint]

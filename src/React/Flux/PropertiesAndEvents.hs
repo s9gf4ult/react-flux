@@ -379,19 +379,18 @@ on2 name parseDetail f = CallbackPropertyWithSingleArgument
 -- create a fake store to handle these actions.
 data FakeEventStoreData = FakeEventStoreData
 
+-- | The actions for the fake store
+data FakeEventStoreAction = PreventDefault HandlerArg
+                          | StopPropagation HandlerArg
+
 -- | The fake store, doesn't store any data.  Also, the dispatch function correctly detects
 -- nullRef and will not attempt to notify any controller-views.
 fakeEventStore :: ReactStore FakeEventStoreData
 fakeEventStore = unsafePerformIO (ReactStore (ReactStoreRef nullRef) <$> newMVar FakeEventStoreData)
 {-# NOINLINE fakeEventStore #-}
 
--- | The actions for the fake store
-data FakeEventStoreAction = PreventDefault HandlerArg
-                          | StopPropagation HandlerArg
-
-instance StoreData FakeEventStoreData where
-    type StoreAction FakeEventStoreData = FakeEventStoreAction
-    transform _ _ = return FakeEventStoreData
+fakeTransform :: Transform FakeEventStoreAction FakeEventStoreData
+fakeTransform _ _ = return FakeEventStoreData
 
 #ifdef __GHCJS__
 
@@ -423,12 +422,14 @@ instance NFData FakeEventStoreAction where
 
 -- | Prevent the default browser action from occuring in response to this event.
 preventDefault :: Event -> SomeStoreAction
-preventDefault = SomeStoreAction fakeEventStore . PreventDefault . evtHandlerArg
+preventDefault = mkSomeStoreAction fakeTransform fakeEventStore
+  . PreventDefault . evtHandlerArg
 
 -- | Stop propagating this event, either down the DOM tree during the capture phase or up the DOM
 -- tree during the bubbling phase.
 stopPropagation :: Event -> SomeStoreAction
-stopPropagation = SomeStoreAction fakeEventStore . StopPropagation . evtHandlerArg
+stopPropagation = mkSomeStoreAction fakeTransform fakeEventStore
+  . StopPropagation . evtHandlerArg
 
 -- | By default, the handlers below are triggered during the bubbling phase.  Use this to switch
 -- them to trigger during the capture phase.

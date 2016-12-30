@@ -65,12 +65,13 @@ module React.Flux (
 
   -- * Stores
     ReactStore
-  , StoreData(..)
+  , Transform
   , mkStore
   , mkStoreIO
   , getStoreData
   , alterStore
   , SomeStoreAction(..)
+  , mkSomeStoreAction
   , executeAction
 
   -- * Views

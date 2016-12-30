@@ -52,23 +52,23 @@ data ETAction
     | ScrollA Int
     deriving (Show, Typeable, Generic, NFData)
 
-instance StoreData ETState where
-  type StoreAction ETState = ETAction
-  transform action st = do
-    let st1 = st{etActions = action:etActions st}
-        st2 = case action of
-          ETInit           -> st1
-          ClearActionsA    -> st1{etActions = []}
-          TextChangeA txt  -> st1{etText = txt}
-          BoolChangeA bool -> st1{etBool = bool}
-          _                -> st1
-    return st2
+transformETState :: Transform ETAction ETState
+transformETState action st = do
+  let st1 = st{etActions = action:etActions st}
+      st2 = case action of
+        ETInit           -> st1
+        ClearActionsA    -> st1{etActions = []}
+        TextChangeA txt  -> st1{etText = txt}
+        BoolChangeA bool -> st1{etBool = bool}
+        _                -> st1
+  return st2
+
 
 store :: ReactStore ETState
 store = mkStore $ ETState [] "" True
 
 dispatchEventTest :: ETAction -> [SomeStoreAction]
-dispatchEventTest a = [SomeStoreAction store a]
+dispatchEventTest a = [mkSomeStoreAction transformETState store a]
 
 view :: ReactView ETState
 view = defineView "event-tests" $ \(ETState actions text bool) ->

@@ -29,24 +29,23 @@ data ClockAction = ClockInit
                  | ClockTick UTCTime
                  deriving (Show, Typeable, Generic, NFData)
 
-instance StoreData ClockState where
-  type StoreAction ClockState = ClockAction
-  transform action st =
-    -- putStrLn $ "Action: " ++ show action
-    case action of
-      ClockInit -> do
-        void $ forkIO $ workerLoop store
-        return st
-      ClockTick tm ->
-        return $ st{csTime = Just tm}
-    where
-      workerLoop rst = do
-        storeWorker rst
-        workerLoop rst
-      storeWorker rst = do
-        threadDelay 1000000
-        tm <- getCurrentTime
-        alterStore rst (ClockTick tm)
+transformClock :: Transform ClockAction ClockState
+transformClock action st =
+  -- putStrLn $ "Action: " ++ show action
+  case action of
+    ClockInit -> do
+      void $ forkIO $ workerLoop store
+      return st
+    ClockTick tm ->
+      return $ st{csTime = Just tm}
+  where
+    workerLoop rst = do
+      storeWorker rst
+      workerLoop rst
+    storeWorker rst = do
+      threadDelay 1000000
+      tm <- getCurrentTime
+      alterStore rst (ClockTick tm)
 
 store :: ReactStore ClockState
 store = mkStore $ ClockState Nothing
@@ -58,5 +57,3 @@ view = defineView "clock" $ \st ->
 view_ :: ClockState -> ReactElementM eventHandler ()
 view_ st =
   RF.view view st mempty
-
-

@@ -77,15 +77,17 @@ type ViewEventHandler = [SomeStoreAction]
 -- >        todoHeader_
 -- >        mainSection_ todoState
 -- >        todoFooter_ todoState
-defineControllerView :: (StoreData storeData, Typeable props)
-                 => JSString -- ^ A name for this view, used only for debugging/console logging
-                 -> ReactStore storeData -- ^ The store this controller view should attach to.
-                 -> (storeData -> props -> ReactElementM ViewEventHandler ()) -- ^ The rendering function
-                 -> ReactView props
+defineControllerView
+  :: (Typeable storeData, Typeable props)
+  => JSString -- ^ A name for this view, used only for debugging/console logging
+  -> Transform storeAction storeData
+  -> ReactStore storeData -- ^ The store this controller view should attach to.
+  -> (storeData -> props -> ReactElementM ViewEventHandler ()) -- ^ The rendering function
+  -> ReactView props
 
 #ifdef __GHCJS__
 
-defineControllerView name (ReactStore store _) buildNode = unsafePerformIO $ do
+defineControllerView name transform (ReactStore store _) buildNode = unsafePerformIO $ do
     let render sd props = return $ buildNode sd props
     renderCb <- mkRenderCallback (js_ReactGetState >=> parseExport) runViewHandler render
     ReactView <$> js_createControllerView name store renderCb
@@ -96,7 +98,7 @@ runViewHandler _ handler = handler `deepseq` mapM_ executeAction handler
 
 #else
 
-defineControllerView _ _ _ = ReactView (ReactViewRef ())
+defineControllerView _ _ _ _ = ReactView (ReactViewRef ())
 
 #endif
 
@@ -559,7 +561,7 @@ instance (FromJSVal a, ArgumentsToProps props b) => ArgumentsToProps props (a ->
 --
 -- 4. Call the javascript function with two arguments to return a React element which can be used
 -- in a JavaScript React class rendering function.
--- 
+--
 --       @
 --       var myJsView = React.createClass({
 --           render: function() {
@@ -571,4 +573,3 @@ exportViewToJavaScript :: (Typeable props, ArgumentsToProps props func) => React
 exportViewToJavaScript v func = do
     (_callbackToRelease, wrappedCb) <- exportViewToJs (reactView v) (\arr -> returnViewFromArguments arr 0 func)
     return wrappedCb
-

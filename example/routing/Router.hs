@@ -17,9 +17,10 @@ module Router (setLocationHash
 
 import           React.Flux
 
-import qualified Data.Text as T
-import qualified Data.ByteString.Char8 as BC
 import           Control.Monad.IO.Class (liftIO)
+import qualified Data.ByteString.Char8 as BC
+import qualified Data.Text as T
+import           Data.Typeable
 import qualified Web.Routes as WR
 
 
@@ -94,12 +95,14 @@ initRouter router =
     stripHash ("#":path) = path
     stripHash path = path
 
-storeRouter :: (StoreData store, WR.PathInfo (StoreAction store)) =>
-               ReactStore store -> ([T.Text] -> IO ())
-storeRouter store =
+storeRouter :: (WR.PathInfo storeAction, Typeable store)
+  => Transform storeAction store
+  -> ReactStore store
+  -> ([T.Text] -> IO ())
+storeRouter transform store =
   let site = WR.mkSitePI $ WR.runRouteT $ routerAlterStore
   in
     \rt -> either (const $ return ()) id $ WR.runSite "" site rt
   where
     routerAlterStore action =
-      liftIO $ alterStore store action
+      liftIO $ alterStore transform store action
