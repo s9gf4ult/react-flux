@@ -70,6 +70,7 @@ module React.Flux (
   , mkStoreIO
   , getStoreData
   , alterStore
+  , alterStore'
   , SomeStoreAction(..)
   , mkSomeStoreAction
   , executeAction
