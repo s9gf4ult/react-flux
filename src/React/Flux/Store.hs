@@ -9,6 +9,7 @@ module React.Flux.Store (
   , mkStoreIO
   , getStoreData
   , alterStore
+  , alterStore'
   , executeAction
 ) where
 
@@ -123,10 +124,10 @@ mkSomeStoreAction
   -> ReactStore storeData
   -> storeAction
   -> SomeStoreAction
-mkSomeStoreAction transform storeData storeAction =
-  SomeStoreAction storeData ioAction
+mkSomeStoreAction transform store storeAction =
+  SomeStoreAction store ioAction
   where
-    ioAction store = alterStore transform store storeAction
+    ioAction s = alterStore transform s storeAction
 
 ----------------------------------------------------------------------------------------------------
 -- mkStore has two versions
@@ -171,23 +172,18 @@ mkStore = unsafePerformIO . mkStoreIO
 -- alterStore has two versions
 ----------------------------------------------------------------------------------------------------
 
--- | First, 'transform' the store data according to the given action.  Next, if compiled with GHCJS,
--- notify all registered controller-views to re-render themselves.  (If compiled with GHC, the store
--- data is just transformed since there are no controller-views.)
---
--- Only a single thread can be transforming the store at any one time, so this function will block
--- on an 'MVar' waiting for a previous transform to complete if one is in process.
-alterStore
+-- | Simplified version of 'alterStore'. Takes direct store data
+-- modifying function
+alterStore'
   :: (Typeable storeData)
-  => Transform storeAction storeData
+  => (storeData -> IO storeData)
   -> ReactStore storeData
-  -> storeAction
   -> IO ()
 
 #ifdef __GHCJS__
 
-alterStore transform store action = modifyMVar_ (storeData store) $ \oldData -> do
-    newData <- transform action oldData
+alterStore' alter store = modifyMVar_ (storeData store) $ \oldData -> do
+    newData <- alter oldData
 
     -- There is a hack in PropertiesAndEvents that the fake event store for propagation and prevent
     -- default does not have a javascript store, so the store is nullRef.
@@ -201,9 +197,26 @@ alterStore transform store action = modifyMVar_ (storeData store) $ \oldData -> 
 
 #else
 
-alterStore store action = modifyMVar_ (storeData store) (transform action)
+alterStore' alter store = modifyMVar_ (storeData store) alter
 
 #endif
+
+
+-- | First, 'transform' the store data according to the given action.  Next, if compiled with GHCJS,
+-- notify all registered controller-views to re-render themselves.  (If compiled with GHC, the store
+-- data is just transformed since there are no controller-views.)
+--
+-- Only a single thread can be transforming the store at any one time, so this function will block
+-- on an 'MVar' waiting for a previous transform to complete if one is in process.
+alterStore
+  :: (Typeable storeData)
+  => Transform storeAction storeData
+  -> ReactStore storeData
+  -> storeAction
+  -> IO ()
+alterStore transform store action = alterStore' alter store
+  where
+    alter = transform action
 
 -- | Call 'alterStore' on the store and action.
 executeAction :: SomeStoreAction -> IO ()

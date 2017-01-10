@@ -15,7 +15,7 @@ import SelectStore
 import qualified Data.Text as T
 
 selectApp :: ReactView ()
-selectApp = defineControllerView "select app" transformSelect selectStore $ \state () -> do
+selectApp = defineControllerView "select app" selectStore $ \state () -> do
   div_ $ do
     foreign_ ["Select"]
       [ callbackReturning "filterOptions" filterOptions

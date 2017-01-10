@@ -32,6 +32,6 @@ data App props = forall state action. (Typeable state) =>
 
 initApp :: Typeable props => App props -> IO (ReactView props)
 initApp App{..} = do
-  let view' = defineControllerView (JSS.textToJSString appName) appTransform appState (\st props -> appView st props)
+  let view' = defineControllerView (JSS.textToJSString appName) appState (\st props -> appView st props)
   alterStore appTransform appState appInitAction
   return view'

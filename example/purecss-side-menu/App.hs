@@ -43,7 +43,7 @@ navMenu_ curPageId =
 
 -- | The entire layout of the app, consisting of the menu and the main content section.
 myApp :: ReactView ()
-myApp = defineControllerView "my application" transformNavState currentNavPageStore $ \navState () -> do
+myApp = defineControllerView "my application" currentNavPageStore $ \navState () -> do
     div_ ["id" $= "layout", classNames [("active", sideMenuOpen navState)]] $ do
         a_ ["id" $= "menuLink"
            , classNames [("menu-link", True), ("active", sideMenuOpen navState)]

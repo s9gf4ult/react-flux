@@ -92,7 +92,7 @@ perfA = mkSomeStoreAction transformPerfStoreData perfStore
 -- | The performance toggle button view
 perfToggleButton :: ReactView [PerfPrint]
 perfToggleButton =
-  defineControllerView "perf toggle button" transformPerfStoreData perfStore
+  defineControllerView "perf toggle button" perfStore
   $ \sData toPrint ->
     button_ [ onClick $ \_ _ ->
                 if perfIsActive sData

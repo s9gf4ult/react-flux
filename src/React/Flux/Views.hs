@@ -80,14 +80,13 @@ type ViewEventHandler = [SomeStoreAction]
 defineControllerView
   :: (Typeable storeData, Typeable props)
   => JSString -- ^ A name for this view, used only for debugging/console logging
-  -> Transform storeAction storeData
   -> ReactStore storeData -- ^ The store this controller view should attach to.
   -> (storeData -> props -> ReactElementM ViewEventHandler ()) -- ^ The rendering function
   -> ReactView props
 
 #ifdef __GHCJS__
 
-defineControllerView name transform (ReactStore store _) buildNode = unsafePerformIO $ do
+defineControllerView name (ReactStore store _) buildNode = unsafePerformIO $ do
     let render sd props = return $ buildNode sd props
     renderCb <- mkRenderCallback (js_ReactGetState >=> parseExport) runViewHandler render
     ReactView <$> js_createControllerView name store renderCb
@@ -98,7 +97,7 @@ runViewHandler _ handler = handler `deepseq` mapM_ executeAction handler
 
 #else
 
-defineControllerView _ _ _ _ = ReactView (ReactViewRef ())
+defineControllerView _ _ _ = ReactView (ReactViewRef ())
 
 #endif
 
