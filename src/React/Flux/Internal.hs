@@ -333,7 +333,7 @@ mkReactElement runHandler this = runWriterT . mToElem
             lift $ JSO.setProp name wrappedCb obj
         addPropOrHandlerToObj obj (CallbackPropertyWithArgumentArray name func) = do
             -- this will be released by the render function of the class (jsbits/class.js)
-            cb <- lift $ syncCallback1' $ \argref -> do
+            cb <- lift $ syncCallback1 ContinueAsync $ \argref -> do
                 handler <- func $ unsafeCoerce argref
                 runHandler handler
                 return jsNull
@@ -342,7 +342,7 @@ mkReactElement runHandler this = runWriterT . mToElem
             lift $ JSO.setProp name wrappedCb obj
         addPropOrHandlerToObj obj (CallbackPropertyWithSingleArgument name func) = do
             -- this will be released by the render function of the class (jsbits/class.js)
-            cb <- lift $ syncCallback1' $ \ref -> do
+            cb <- lift $ syncCallback1 ContinueAsync $ \ref -> do
                 runHandler $ func $ HandlerArg ref
                 return jsNull
             tell [jsval cb]
